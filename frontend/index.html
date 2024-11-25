@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">Library</h1>
+        <!-- Botón para agregar nuevo libro -->
+        <div class="mb-3">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBookModal">Add New Book</button>
+        </div>
+
+        <!-- Tabla de libros -->
+        <div id="books-container">
+            <table id="books-table" class="table table-striped table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Publication Year</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal para agregar libro -->
+    <div class="modal fade" id="addBookModal" tabindex="-1" aria-labelledby="addBookModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addBookModalLabel">Add New Book</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addBookForm">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="author" class="form-label">Author</label>
+                            <input type="text" class="form-control" id="author" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="publicationYear" class="form-label">Publication Year</label>
+                            <input type="number" class="form-control" id="publicationYear" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Book</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para editar libro -->
+    <div class="modal fade" id="editBookModal" tabindex="-1" aria-labelledby="editBookModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editBookModalLabel">Edit Book</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editBookForm">
+                        <input type="hidden" id="editBookId">
+                        <div class="mb-3">
+                            <label for="editTitle" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="editTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editAuthor" class="form-label">Author</label>
+                            <input type="text" class="form-control" id="editAuthor" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPublicationYear" class="form-label">Publication Year</label>
+                            <input type="number" class="form-control" id="editPublicationYear" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.5/js/dataTables.bootstrap5.min.js"></script>
+
+    <script>
+        const backendUrl = 'http://localhost:5001/books';
+        let dataTable;
+
+        // Fetch and populate table
+        function loadBooks() {
+            fetch(backendUrl)
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#books-table tbody');
+                    tableBody.innerHTML = data.map(book => `
+                        <tr>
+                            <td>${book.id}</td>
+                            <td>${book.title}</td>
+                            <td>${book.author}</td>
+                            <td>${book.publication_year}</td>
+                            <td>
+                                <button class="btn btn-warning btn-sm" onclick="openEditModal(${book.id}, '${book.title}', '${book.author}', ${book.publication_year})">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteBook(${book.id})">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    // Reinitialize DataTable
+                    if (dataTable) {
+                        dataTable.destroy();
+                    }
+                    dataTable = $('#books-table').DataTable({
+                        pageLength: 10,
+                        lengthChange: false,
+                        searching: false,
+                        ordering: true,
+                        info: true,
+                        paging: true
+                    });
+                })
+                .catch(error => console.error('Error loading books:', error));
+        }
+
+        // Add new book
+        document.getElementById('addBookForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const newBook = {
+                title: document.getElementById('title').value,
+                author: document.getElementById('author').value,
+                publication_year: parseInt(document.getElementById('publicationYear').value)
+            };
+
+            fetch(backendUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newBook)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    location.reload(); // Reload page
+                })
+                .catch(error => console.error('Error adding book:', error));
+        });
+
+        // Open edit modal
+        function openEditModal(id, title, author, publicationYear) {
+            document.getElementById('editBookId').value = id;
+            document.getElementById('editTitle').value = title;
+            document.getElementById('editAuthor').value = author;
+            document.getElementById('editPublicationYear').value = publicationYear;
+            const editModal = new bootstrap.Modal(document.getElementById('editBookModal'));
+            editModal.show();
+        }
+
+        // Save changes to book
+        document.getElementById('editBookForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const updatedBook = {
+                id: parseInt(document.getElementById('editBookId').value),
+                title: document.getElementById('editTitle').value,
+                author: document.getElementById('editAuthor').value,
+                publication_year: parseInt(document.getElementById('editPublicationYear').value)
+            };
+
+            fetch(`${backendUrl}/${updatedBook.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedBook)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    location.reload(); // Reload page
+                })
+                .catch(error => console.error('Error editing book:', error));
+        });
+
+        // Delete book
+        function deleteBook(id) {
+            fetch(`${backendUrl}/${id}`, { method: 'DELETE' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    loadBooks(); // Reload books
+                    location.reload(); // Reload page
+                })
+                .catch(error => console.error('Error deleting book:', error));
+        }
+
+        // Initial load
+        loadBooks();
+    </script>
+</body>
+</html>
